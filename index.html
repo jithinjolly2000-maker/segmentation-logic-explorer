@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Segmentation &amp; Rules Logic Explorer — Demo</title>
+<style>
+  :root{
+    --paper:#f5f5fa; --panel:#ffffff; --ink:#1b1d26; --muted:#4f5664; --dim:#5f6775;
+    --line:#dfe0ea; --accent:#3b3796; --accent-soft:#3b37961a;
+    --bad:#a12a3c; --bad-bg:#a12a3c14;
+    --warn:#7a5200; --warn-bg:#b5841f1f;
+    --ok:#0a6b47; --ok-bg:#0a6b4717;
+    --shadow:0 1px 2px rgba(20,25,40,.05),0 4px 16px rgba(20,25,40,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;background:var(--paper);color:var(--ink);
+    line-height:1.45;font-size:14px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1220px;margin:0 auto;padding:28px 24px 56px}
+  a{color:var(--accent)}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  header.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;
+    border-bottom:2px solid var(--accent);padding-bottom:16px;margin-bottom:4px}
+  .brand h1{font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .brand .sub{color:var(--muted);font-size:13px;margin-top:3px;max-width:64ch}
+  .demo-badge{display:inline-block;background:var(--warn-bg);color:var(--warn);font-size:11px;font-weight:700;
+    letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:4px;border:1px solid var(--warn);margin-top:9px}
+  .by{text-align:right;font-size:12px;color:var(--muted)}
+  .by a{text-decoration:none}
+  .by a:hover{text-decoration:underline}
+
+  .note{background:var(--accent-soft);border:1px solid var(--line);border-left:3px solid var(--accent);
+    padding:9px 13px;border-radius:5px;font-size:12.5px;color:var(--muted);margin:16px 0 22px}
+  .note p+p{margin-top:4px}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:15px 16px;box-shadow:var(--shadow)}
+  .kpi .label{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .kpi .value{font-size:26px;font-weight:700;margin-top:5px;letter-spacing:-.02em}
+  .kpi .delta{font-size:12px;margin-top:3px;color:var(--muted)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;margin-bottom:22px}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:22px}
+  .grid .card{margin-bottom:0}
+  .card h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);
+    padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .card h2 .hint{font-size:11px;font-weight:500;color:var(--dim);text-transform:none;letter-spacing:0}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:center}
+  .controls label{font-size:12px;color:var(--muted);font-weight:600}
+  select,input[type=text],input[type=search],input[type=number]{font:inherit;font-size:13px;padding:5px 9px;
+    border:1px solid #b9bccb;border-radius:6px;background:var(--paper);color:var(--ink)}
+  .controls input[type=search]{flex:1;min-width:140px}
+  .pill{margin-left:auto;font-size:12px;color:var(--muted)}
+  button.btn{font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--accent);background:var(--accent);color:#fff}
+  button.btn.ghost{background:var(--panel);color:var(--accent)}
+  button.btn:hover{filter:brightness(1.1)}
+
+  /* Cheat sheet */
+  .rules{max-height:640px;overflow-y:auto;padding:6px 16px 14px}
+  .rule{border-bottom:1px solid var(--line);padding:12px 0}
+  .rule:last-child{border-bottom:none}
+  .rule h3{font-size:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .code{font-family:Consolas,"Courier New",monospace;font-size:12.5px;background:var(--accent-soft);color:var(--accent);
+    padding:1px 7px;border-radius:4px;font-weight:700}
+  .cat{font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:1px 8px}
+  .grp{font-size:11px;font-weight:600;color:var(--warn);background:var(--warn-bg);border-radius:20px;padding:1px 8px}
+  .rule p{font-size:12.8px;margin-top:5px;color:var(--ink)}
+  .rule p b{color:var(--muted);font-weight:600}
+  .rule ul{margin:4px 0 0 18px;font-size:12.8px}
+  .rule .risk{color:var(--bad)}
+  .empty{padding:20px 0;color:var(--muted);text-align:center}
+
+  /* Tester */
+  form.profile{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 14px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  form.profile .f{display:flex;flex-direction:column;gap:4px}
+  form.profile label,form.profile legend{font-size:12px;color:var(--muted);font-weight:600}
+  form.profile fieldset{border:none;grid-column:1/-1}
+  form.profile fieldset .opts{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px}
+  form.profile fieldset label{font-weight:500;color:var(--ink);font-size:13px;display:flex;gap:5px;align-items:center}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;grid-column:1/-1}
+  .summary{padding:12px 16px;font-size:13px;border-bottom:1px solid var(--line)}
+  .summary .warnline{margin-top:6px;color:var(--warn);background:var(--warn-bg);padding:6px 9px;border-radius:6px}
+  .toggle{display:flex;gap:6px;align-items:center;padding:10px 16px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--line)}
+  .results{max-height:520px;overflow-y:auto;padding:4px 16px 12px}
+  .res{padding:10px 0;border-bottom:1px solid var(--line)}
+  .res:last-child{border-bottom:none}
+  .res h3{font-size:13.5px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .res ul{list-style:none;margin-top:6px;font-size:12.5px}
+  .res li{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+  .res li .act{color:var(--muted)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:20px;white-space:nowrap}
+  .tag.ok{background:var(--ok-bg);color:var(--ok)}
+  .tag.bad{background:var(--bad-bg);color:var(--bad)}
+  .tag.warn{background:var(--warn-bg);color:var(--warn)}
+
+  /* Chart + conflicts */
+  .chartbox{padding:14px 16px;overflow-x:auto}
+  .chartbox svg{width:100%;min-width:600px;height:auto;display:block}
+  .tbl-scroll table{min-width:620px}
+  details.tbl{padding:0 16px 14px;font-size:12.5px}
+  details.tbl summary{cursor:pointer;color:var(--accent);font-weight:600}
+  .tbl-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.8px}
+  th,td{text-align:left;padding:8px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);font-weight:700}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  details.tbl th,details.tbl td{padding:5px 8px}
+  .sub-h{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:14px 16px 4px}
+  .explain{padding:10px 16px;font-size:12.5px;color:var(--muted)}
+
+  footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--dim);text-align:center}
+  footer a{text-decoration:none}
+  @media (max-width:560px){.by{text-align:left}.wrap{padding:20px 14px 40px}th,td{padding:7px 10px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <h1>Segmentation &amp; Rules Logic Explorer</h1>
+      <p class="sub">A learning demo of rule-based customer segmentation and personalisation codes. One set of rule definitions drives the cheat sheet, the rule tester and the population analysis.</p>
+      <span class="demo-badge">Demo · synthetic data</span>
+    </div>
+    <div class="by">
+      Built by <b>Jithin J</b><br>
+      <a href="https://github.com/jithinjolly2000-maker" target="_blank" rel="noopener">github.com/jithinjolly2000-maker</a><br>
+      <a href="https://www.linkedin.com/in/jithin2k" target="_blank" rel="noopener">linkedin.com/in/jithin2k</a>
+    </div>
+  </header>
+
+  <div class="note" role="note">
+    <p><b>Portfolio demonstration — synthetic data. Nothing here comes from any employer or real system.</b></p>
+    <p>This is a self-built learning demo. The codes and rules are synthetic and invented for illustration. They are not any company's actual segmentation or personalisation codes. Customers are generated in your browser from a fixed seed, so every visit shows the same numbers.</p>
+  </div>
+
+  <section aria-labelledby="kpiH">
+    <h2 id="kpiH" class="sr-only">Summary</h2>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <div class="grid">
+    <!-- Cheat sheet -->
+    <section class="card" aria-labelledby="csH">
+      <h2 id="csH">Rule cheat sheet <span class="hint">plain-English logic, eligibility &amp; risk notes</span></h2>
+      <div class="controls">
+        <label for="csSearch">Search</label>
+        <input id="csSearch" type="search" placeholder="Code, name, condition or note…">
+        <label for="csCat">Category</label>
+        <select id="csCat"></select>
+        <span class="pill" id="csCount" aria-live="polite"></span>
+      </div>
+      <div class="rules" id="csList" tabindex="0" aria-label="Rule list"></div>
+    </section>
+
+    <!-- Tester -->
+    <section class="card" aria-labelledby="rtH">
+      <h2 id="rtH">Rule tester <span class="hint">edit a synthetic profile; results update live</span></h2>
+      <form class="profile" id="pf" novalidate>
+        <div class="f"><label for="pTen">Tenure (months)</label><input id="pTen" type="number" min="0" max="600" step="1"></div>
+        <div class="f"><label for="pSpd">Spend band</label><select id="pSpd"></select></div>
+        <div class="f"><label for="pRsk">Risk tier</label><select id="pRsk"></select></div>
+        <div class="f"><label for="pReg">Region</label><select id="pReg"></select></div>
+        <div class="f"><label for="pAct">Days since last activity</label><input id="pAct" type="number" min="0" max="600" step="1"></div>
+        <fieldset><legend>Products held</legend><div class="opts" id="pPrd"></div></fieldset>
+        <div class="actions">
+          <button type="button" class="btn ghost" id="pRand">Load a customer from the population</button>
+          <button type="button" class="btn ghost" id="pReset">Reset profile</button>
+        </div>
+      </form>
+      <div class="summary" id="rtSum" aria-live="polite"></div>
+      <div class="toggle"><input type="checkbox" id="rtAll"><label for="rtAll">Also show codes that did not match, with the conditions that failed</label></div>
+      <div class="results" id="rtList" tabindex="0" aria-label="Rule test results"></div>
+    </section>
+  </div>
+
+  <!-- Distribution -->
+  <section class="card" aria-labelledby="dH">
+    <h2 id="dH">Segment distribution <span class="hint" id="dHint"></span></h2>
+    <div class="controls">
+      <label for="dCat">Category</label>
+      <select id="dCat"></select>
+    </div>
+    <div class="chartbox" tabindex="0" aria-label="Segment chart, scrolls sideways on small screens"><svg id="dChart" role="img" aria-labelledby="dTitle"><title id="dTitle">Segment distribution</title></svg></div>
+    <details class="tbl"><summary>View chart data as a table</summary><div class="tbl-scroll" tabindex="0" aria-label="Scrollable table"><table><thead><tr><th scope="col">Code</th><th scope="col">Segment</th><th scope="col" class="num">Customers</th><th scope="col" class="num">Share</th></tr></thead><tbody id="dTbl"></tbody></table></div></details>
+  </section>
+
+  <!-- Conflicts -->
+  <section class="card" aria-labelledby="cH">
+    <h2 id="cH">Conflict &amp; overlap check <span class="hint">customers matching 2+ codes in a mutually exclusive group</span></h2>
+    <p class="explain">Each exclusivity group should give a customer at most one code. When two codes in the same group both match, the rules overlap and need fixing (or a priority order). Groups showing "No conflicts" are cleanly partitioned.</p>
+    <div class="tbl-scroll" tabindex="0" aria-label="Scrollable table"><table>
+      <thead><tr><th scope="col">Exclusivity group</th><th scope="col">Codes in group</th><th scope="col" class="num">Customers in conflict</th><th scope="col">Status</th><th scope="col">Most common overlap</th></tr></thead>
+      <tbody id="cTbl"></tbody>
+    </table></div>
+    <h3 class="sub-h">Sample flagged customers</h3>
+    <div class="tbl-scroll" tabindex="0" aria-label="Scrollable table"><table>
+      <thead><tr><th scope="col">Customer</th><th scope="col">Group</th><th scope="col">Conflicting codes</th><th scope="col">Action</th></tr></thead>
+      <tbody id="cSample"></tbody>
+    </table></div>
+  </section>
+
+  <footer>
+    Static demo · vanilla HTML/CSS/JS · GitHub Pages ·
+    <a href="https://github.com/jithinjolly2000-maker/segmentation-logic-explorer" target="_blank" rel="noopener">source</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- Reference data (all synthetic) ----
+  var SPEND=["Low","Mid","High","Premium"];            // values 1..4
+  var RISK=["Low","Medium","High","Very high"];         // tiers 1..4
+  var REGIONS=["North","South","East","West","Metro"];
+  var PRODUCTS={CARD:"Credit card",SAV:"Savings",LOAN:"Personal loan",MORT:"Mortgage",INS:"Insurance",INV:"Investments"};
+  var FIELDS={ten:"Tenure (months)",spd:"Spend band",rsk:"Risk tier",reg:"Region",prd:"Products held",nprd:"Number of products",act:"Days since last activity"};
+  var CATS={SEG:"Lifecycle & activity",VAL:"Value",RSK:"Risk",PZN:"Personalisation offers",RET:"Retention",CHN:"Channel & region"};
+  var GROUPS={lifecycle:"Lifecycle stage",activity:"Activity state",value:"Value tier",risk:"Risk tier",credit:"Credit-line action",offer:"Primary offer slot",contact:"Contact policy"};
+
+  // ---- Rule definitions: the single source of truth ----
+  // Each condition is [field, operator, value]. Operators: gte, lte, eq, btw, in, has, lacks, any.
+  function R(code,name,conds,group,desc,note){ return {code:code,name:name,cat:code.slice(0,3),conds:conds,group:group,desc:desc,note:note}; }
+  var RULES=[
+    R("SEG-01","New-to-bank",[["ten","lte",3]],"lifecycle","First three months of the relationship.","Thin history: avoid offers that rely on behaviour data."),
+    R("SEG-02","Onboarding",[["ten","btw",[4,12]]],"lifecycle","Months 4 to 12, still learning the customer.","The 12/13 boundary must line up with SEG-03 or customers fall into a gap."),
+    R("SEG-03","Established",[["ten","btw",[13,60]]],"lifecycle","Settled relationship of one to five years.","Largest segment; check campaign size before launch."),
+    R("SEG-04","Long-standing",[["ten","gte",61]],"lifecycle","More than five years as a customer.","Long tenure does not imply high value; pair with a value code."),
+    R("SEG-05","Dormant",[["act","gte",180]],"activity","No activity for six months or more.","Dormant accounts can hide misuse; run risk checks before any reactivation offer."),
+    R("SEG-06","Lapsing",[["act","btw",[60,179]]],"activity","Activity dropped off two to six months ago.","Best win-back window; overlaps retention codes by design."),
+    R("SEG-07","Active",[["act","lte",30]],"activity","Used an account in the last 30 days.","Baseline for engagement reporting."),
+    R("SEG-08","Recently engaged",[["act","btw",[25,45]]],"activity","Legacy rule: activity 25 to 45 days ago.","Known defect: days 25 to 30 also count as SEG-07. Kept to show the overlap check catching it."),
+    R("VAL-01","Mass",[["spd","eq",1]],"value","Low spend band.","Cost-to-serve matters; prefer digital channels."),
+    R("VAL-02","Core",[["spd","eq",2]],"value","Mid spend band.","Main cross-sell pool; watch offer fatigue."),
+    R("VAL-03","Affluent",[["spd","eq",3]],"value","High spend band.","Eligible for richer offers; confirm risk tier first."),
+    R("VAL-04","Premium",[["spd","eq",4]],"value","Premium spend band.","Small segment; errors here are highly visible."),
+    R("VAL-05","Rising value",[["spd","gte",2],["ten","lte",24]],null,"Newer customers already spending at Mid or above.","Short history can make spend look higher than it is."),
+    R("VAL-06","Multi-product high value",[["spd","gte",3],["nprd","gte",3]],null,"High spenders holding three or more products.","Concentration risk if one product fails."),
+    R("VAL-07","Single-product spender",[["prd","has","CARD"],["nprd","eq",1]],null,"Card-only customers.","Easy to lose; no other product keeps them."),
+    R("RSK-01","Risk tier 1",[["rsk","eq",1]],"risk","Lowest risk tier.","Tier is an input from a separate model; refresh dates matter."),
+    R("RSK-02","Risk tier 2",[["rsk","eq",2]],"risk","Medium risk tier.","Most offers allow tier 2; check each rule's ceiling."),
+    R("RSK-03","Risk tier 3",[["rsk","eq",3]],"risk","High risk tier.","Credit offers should exclude this tier."),
+    R("RSK-04","Risk tier 4",[["rsk","eq",4]],"risk","Very high risk tier.","Marketing suppression applies (RSK-09)."),
+    R("RSK-05","Credit-line hold",[["rsk","gte",3],["prd","has","CARD"]],"credit","Freeze card limit increases for high-risk cardholders.","Must win over PZN-02; overlap means the offer engine needs a priority order."),
+    R("RSK-06","Lending watchlist",[["rsk","gte",3],["prd","has","LOAN"]],null,"High-risk customers with a personal loan.","Feed to collections early-warning, not to marketing."),
+    R("RSK-07","New and high risk",[["ten","lte",6],["rsk","gte",3]],null,"High risk within the first six months.","Possible application-stage issue; review onboarding checks."),
+    R("RSK-08","Dormant exposure",[["act","gte",120],["prd","any",["CARD","LOAN"]]],null,"Inactive customers who still hold credit.","Unused open credit is an exposure; consider limit review."),
+    R("RSK-09","Marketing suppression",[["rsk","eq",4]],"contact","No outbound marketing for tier 4.","Must block every outbound channel; see CHN-01 overlap."),
+    R("PZN-01","Welcome bundle",[["ten","lte",3],["rsk","lte",2]],"offer","Starter offer for new, lower-risk customers.","Competes for the single offer slot with other primary offers."),
+    R("PZN-02","Credit-line increase",[["prd","has","CARD"],["spd","gte",3],["rsk","lte",3],["ten","gte",12]],"credit","Proactive limit increase for engaged cardholders.","Allows tier 3, so it collides with RSK-05. Fix: cap at tier 2."),
+    R("PZN-03","Card upgrade",[["prd","has","CARD"],["spd","gte",3],["rsk","lte",2]],"offer","Upgrade to a higher card tier.","Overlaps fee waiver and win-back for lapsing high spenders."),
+    R("PZN-04","Savings starter",[["prd","lacks","SAV"],["spd","gte",2]],null,"Nudge spenders without savings to open one.","Low risk offer; check frequency caps."),
+    R("PZN-05","Mortgage pre-approval",[["prd","lacks","MORT"],["ten","gte",24],["rsk","eq",1],["spd","gte",3]],"offer","Indicative pre-approval for strong profiles.","Regulated product; wording needs compliance sign-off."),
+    R("PZN-06","Protection add-on",[["prd","any",["LOAN","MORT"]],["prd","lacks","INS"]],null,"Offer cover to borrowers without insurance.","Avoid pressure selling; must be optional."),
+    R("PZN-07","Investment intro",[["prd","has","SAV"],["prd","lacks","INV"],["spd","gte",3]],null,"Introduce investments to high-spending savers.","Needs suitability checks before any advice."),
+    R("PZN-08","Balance transfer",[["prd","has","CARD"],["rsk","lte",2],["act","lte",60]],null,"Promotional transfer rate for active cardholders.","Promo expiry can create payment shock."),
+    R("PZN-09","Loyalty reward",[["ten","gte",61],["act","lte",30]],null,"Thank-you reward for long-standing active customers.","Reward cost scales with segment size."),
+    R("PZN-10","City event invite",[["reg","in",["Metro"]],["spd","gte",3]],null,"Invite to an in-person event in the metro region.","Capacity limited; rank by spend."),
+    R("PZN-11","Digital adoption",[["act","lte",30],["nprd","lte",2]],null,"Encourage app use for active, lighter customers.","Exclude customers who opted out of digital contact."),
+    R("PZN-12","Low-rate loan",[["prd","lacks","LOAN"],["rsk","eq",1],["spd","gte",2]],null,"Personal loan offer for tier 1 customers.","Affordability check still required at application."),
+    R("PZN-13","Cashback booster",[["prd","has","CARD"],["spd","eq",2]],null,"Extra cashback to grow Mid-band card spend.","Watch for spend gaming near band edges."),
+    R("PZN-14","Household bundle",[["nprd","gte",3],["reg","in",["South","East"]]],null,"Regional bundle pilot for multi-product customers.","Pilot regions only; remove when the pilot ends."),
+    R("PZN-15","First anniversary",[["ten","btw",[12,13]]],null,"Anniversary message around month 12.","Fires for two months; dedupe so it sends once."),
+    R("RET-01","Win-back",[["act","gte",90],["rsk","lte",2]],"offer","Re-engagement offer for quiet, lower-risk customers.","Check SEG-05 risk review before sending to dormant customers."),
+    R("RET-02","Fee waiver",[["spd","gte",3],["act","btw",[60,179]]],"offer","Waive fees for high spenders who are lapsing.","Revenue cost; time-box the waiver."),
+    R("RET-03","Closure risk",[["nprd","eq",1],["act","gte",60]],null,"Single-product customers going quiet.","Strongest attrition signal in this demo."),
+    R("RET-04","Rate match",[["prd","has","SAV"],["spd","gte",3],["act","gte",30]],null,"Match savings rates for valuable savers at risk of leaving.","Margin impact; cap the number of matches."),
+    R("RET-05","Service recovery call",[["rsk","lte",2],["act","btw",[31,89]],["ten","gte",36]],null,"Personal call to long-standing customers slipping away.","Agent capacity limited; prioritise by tenure."),
+    R("RET-06","Product consolidation",[["nprd","gte",4],["act","gte",60]],null,"Help heavy holders simplify inactive products.","Closing products can lower value; offer, don't push."),
+    R("CHN-01","Outbound call eligible",[["act","lte",90],["spd","gte",2]],"contact","Customers eligible for outbound sales calls.","No risk condition, so it collides with RSK-09. Fix: add risk tier 3 or lower."),
+    R("CHN-02","Branch-led",[["reg","in",["North","West"]],["ten","gte",36]],null,"Route long-tenure customers in branch-heavy regions to branches.","Branch hours limit reach."),
+    R("CHN-03","Digital-first",[["reg","in",["Metro"]],["act","lte",30]],null,"App and web first for active metro customers.","Make sure a non-digital path still exists."),
+    R("CHN-04","Email only",[["act","gte",31],["rsk","lte",3]],null,"Low-cost email channel for less active customers.","Needs a valid email and marketing consent."),
+    R("CHN-05","Payment SMS",[["prd","has","LOAN"],["act","lte",60]],null,"Service SMS reminders for borrowers.","Service message, not marketing; keep content factual."),
+    R("CHN-06","Premium desk",[["reg","in",["Metro"]],["spd","eq",4]],null,"Dedicated desk for premium metro customers.","Small team; monitor queue time."),
+    R("CHN-07","Regional outreach",[["reg","in",["North","South"]],["spd","lte",2]],null,"Community outreach in two regions.","Measure uplift against a control group.")
+  ];
+
+  // ---- Seeded random generator (mulberry32) for reproducible data ----
+  var SEED=20260518;
+  function makeRng(seed){ var a=seed>>>0; return function(){ a=(a+0x6D2B79F5)>>>0; var t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; }
+  var rnd=makeRng(SEED);
+  function weighted(w){ var r=rnd(),s=0; for(var i=0;i<w.length;i++){ s+=w[i]; if(r<s) return i; } return w.length-1; }
+
+  // ---- Condition evaluation & plain-English text ----
+  function getVal(p,f){ return f==="nprd" ? p.prd.length : p[f]; }
+  function test(c,p){
+    var v=getVal(p,c[0]), x=c[2];
+    switch(c[1]){
+      case "gte": return v>=x;
+      case "lte": return v<=x;
+      case "eq":  return v===x;
+      case "btw": return v>=x[0] && v<=x[1];
+      case "in":  return x.indexOf(v)>=0;
+      case "has": return v.indexOf(x)>=0;
+      case "lacks": return v.indexOf(x)<0;
+      case "any": return x.some(function(k){ return v.indexOf(k)>=0; });
+    }
+    return false;
+  }
+  function fmt(f,v){
+    if(f==="spd") return SPEND[v-1];
+    if(f==="rsk") return v+" ("+RISK[v-1]+")";
+    if(f==="prd") return (typeof v==="string"?[v]:v).map(function(k){return PRODUCTS[k];}).join(", ")||"none";
+    if(f==="ten") return v+(v===1?" month":" months");
+    if(f==="act") return v+(v===1?" day":" days");
+    return String(v);
+  }
+  function condText(c){
+    var f=c[0],op=c[1],x=c[2],L=FIELDS[f];
+    if(f==="ten") L="Tenure"; if(f==="act") L="Days since last activity";
+    function u(n){ return f==="ten"?n+" months":f==="act"?n+" days":f==="spd"?SPEND[n-1]:f==="rsk"?"tier "+n:String(n); }
+    switch(op){
+      case "gte": return L+" is "+u(x)+" or more";
+      case "lte": return L+" is "+u(x)+" or less";
+      case "eq":  return L+" is "+u(x);
+      case "btw": return L+" is between "+u(x[0])+" and "+u(x[1]);
+      case "in":  return L+" is "+x.join(" or ");
+      case "has": return "Holds "+PRODUCTS[x];
+      case "lacks": return "Does not hold "+PRODUCTS[x];
+      case "any": return "Holds "+x.map(function(k){return PRODUCTS[k];}).join(" or ");
+    }
+    return "";
+  }
+  function actualText(c,p){ var f=c[0]; return f==="nprd" ? p.prd.length+" held" : fmt(f,getVal(p,f)); }
+  function matches(rule,p){ return rule.conds.every(function(c){ return test(c,p); }); }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(ch){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]; }); }
+  function codeLabel(r){ return '<span class="code">'+r.code+'</span>'; }
+  var BYCODE={}; RULES.forEach(function(r){ BYCODE[r.code]=r; });
+
+  // ---- Synthetic population (500 customers) ----
+  var POP=[];
+  for(var i=0;i<500;i++){
+    var tr=rnd();
+    var ten = tr<0.12 ? Math.floor(rnd()*4) : tr<0.3 ? 4+Math.floor(rnd()*9) : tr<0.75 ? 13+Math.floor(rnd()*48) : 61+Math.floor(rnd()*120);
+    var ar=rnd();
+    var act = ar<0.55 ? Math.floor(rnd()*31) : ar<0.8 ? 31+Math.floor(rnd()*90) : 121+Math.floor(rnd()*240);
+    var prd=[];
+    [["CARD",.7],["SAV",.55],["LOAN",.3],["MORT",.2],["INS",.25],["INV",.12]].forEach(function(pp){ if(rnd()<pp[1]) prd.push(pp[0]); });
+    if(!prd.length) prd.push("SAV");
+    var cust={id:"C-"+(1001+i),ten:ten,spd:1+weighted([.35,.35,.2,.1]),rsk:1+weighted([.45,.3,.17,.08]),reg:REGIONS[Math.floor(rnd()*REGIONS.length)],prd:prd,act:act};
+    cust.codes=RULES.filter(function(r){ return matches(r,cust); }).map(function(r){ return r.code; });
+    POP.push(cust);
+  }
+
+  // Conflict analysis: per exclusivity group, customers with 2+ matching codes
+  var groupKeys=Object.keys(GROUPS), conflicts={}, flagged={};
+  groupKeys.forEach(function(g){ conflicts[g]={count:0,pairs:{},samples:[]}; });
+  POP.forEach(function(c){
+    groupKeys.forEach(function(g){
+      var hit=c.codes.filter(function(k){ return BYCODE[k].group===g; });
+      if(hit.length>1){
+        var cg=conflicts[g]; cg.count++; flagged[c.id]=true;
+        for(var a=0;a<hit.length;a++) for(var b=a+1;b<hit.length;b++){ var key=hit[a]+" + "+hit[b]; cg.pairs[key]=(cg.pairs[key]||0)+1; }
+        if(cg.samples.length<3) cg.samples.push({c:c,codes:hit});
+      }
+    });
+  });
+
+  // ---- KPIs ----
+  var nFlagged=Object.keys(flagged).length;
+  var withOffer=POP.filter(function(c){ return c.codes.some(function(k){ return k.indexOf("PZN")===0; }); }).length;
+  var avgCodes=(POP.reduce(function(s,c){ return s+c.codes.length; },0)/POP.length).toFixed(1);
+  var unmatchedLife=POP.filter(function(c){ return !c.codes.some(function(k){ return BYCODE[k].group==="activity"; }); }).length;
+  var kpis=[
+    {label:"Codes defined",value:RULES.length,delta:Object.keys(CATS).length+" categories · "+groupKeys.length+" exclusivity groups"},
+    {label:"Synthetic customers",value:POP.length,delta:(RULES.length*POP.length).toLocaleString("en-GB")+" rule checks · seed "+SEED},
+    {label:"Avg codes / customer",value:avgCodes,delta:withOffer+" customers get 1+ PZN offer"},
+    {label:"Customers in conflict",value:nFlagged,delta:Math.round(nFlagged/POP.length*100)+"% match exclusive codes"},
+    {label:"No activity state",value:unmatchedLife,delta:"fall in a gap between activity rules"}
+  ];
+  document.getElementById("kpis").innerHTML=kpis.map(function(k){
+    return '<div class="kpi"><div class="label">'+k.label+'</div><div class="value">'+k.value+'</div><div class="delta">'+k.delta+'</div></div>';
+  }).join("");
+
+  // ---- Category selects ----
+  var catOpts=Object.keys(CATS).map(function(k){ return '<option value="'+k+'">'+esc(CATS[k])+'</option>'; }).join("");
+  document.getElementById("csCat").innerHTML='<option value="">All categories</option>'+catOpts;
+  document.getElementById("dCat").innerHTML='<option value="">All categories</option>'+catOpts;
+  document.getElementById("dCat").value="SEG";
+
+  // ---- Cheat sheet ----
+  var csSearch=document.getElementById("csSearch"), csCat=document.getElementById("csCat");
+  function renderCheat(){
+    var q=csSearch.value.trim().toLowerCase(), cat=csCat.value;
+    var rows=RULES.filter(function(r){
+      if(cat && r.cat!==cat) return false;
+      if(!q) return true;
+      var hay=[r.code,r.name,r.desc,r.note,CATS[r.cat],r.group?GROUPS[r.group]:""].concat(r.conds.map(condText)).join(" ").toLowerCase();
+      return hay.indexOf(q)>=0;
+    });
+    document.getElementById("csCount").textContent=rows.length+" of "+RULES.length+" codes";
+    var list=document.getElementById("csList");
+    if(!rows.length){ list.innerHTML='<p class="empty">No codes match that search.</p>'; return; }
+    list.innerHTML=rows.map(function(r){
+      return '<article class="rule"><h3>'+codeLabel(r)+' '+esc(r.name)+' <span class="cat">'+esc(CATS[r.cat])+'</span>'+
+        (r.group?'<span class="grp">Exclusive: '+esc(GROUPS[r.group])+'</span>':'')+'</h3>'+
+        '<p><b>Logic:</b> '+esc(r.desc)+' Tag the customer with '+r.code+' when <em>all</em> conditions are true:</p>'+
+        '<ul>'+r.conds.map(function(c){ return '<li>'+esc(condText(c))+'</li>'; }).join("")+'</ul>'+
+        '<p class="risk"><b>Risk note:</b> '+esc(r.note)+'</p></article>';
+    }).join("");
+  }
+  csSearch.addEventListener("input",renderCheat);
+  csCat.addEventListener("change",renderCheat);
+
+  // ---- Rule tester ----
+  var DEFAULT={ten:18,spd:3,rsk:2,reg:"Metro",prd:["CARD","SAV"],act:12};
+  function opts(arr,valFn,txtFn){ return arr.map(function(x,i){ return '<option value="'+valFn(x,i)+'">'+esc(txtFn(x,i))+'</option>'; }).join(""); }
+  document.getElementById("pSpd").innerHTML=opts(SPEND,function(x,i){return i+1;},function(x){return x;});
+  document.getElementById("pRsk").innerHTML=opts(RISK,function(x,i){return i+1;},function(x,i){return "Tier "+(i+1)+" · "+x;});
+  document.getElementById("pReg").innerHTML=opts(REGIONS,function(x){return x;},function(x){return x;});
+  document.getElementById("pPrd").innerHTML=Object.keys(PRODUCTS).map(function(k){
+    return '<label><input type="checkbox" value="'+k+'"> '+esc(PRODUCTS[k])+'</label>';
+  }).join("");
+  var prdBoxes=document.querySelectorAll("#pPrd input");
+
+  function setProfile(p){
+    document.getElementById("pTen").value=p.ten;
+    document.getElementById("pSpd").value=p.spd;
+    document.getElementById("pRsk").value=p.rsk;
+    document.getElementById("pReg").value=p.reg;
+    document.getElementById("pAct").value=p.act;
+    Array.prototype.forEach.call(prdBoxes,function(b){ b.checked=p.prd.indexOf(b.value)>=0; });
+  }
+  function num(id){ var n=parseInt(document.getElementById(id).value,10); if(isNaN(n)||n<0) n=0; return Math.min(n,600); }
+  function readProfile(){
+    return {ten:num("pTen"),spd:+document.getElementById("pSpd").value,rsk:+document.getElementById("pRsk").value,
+      reg:document.getElementById("pReg").value,act:num("pAct"),
+      prd:Array.prototype.filter.call(prdBoxes,function(b){return b.checked;}).map(function(b){return b.value;})};
+  }
+  var loadedNote="";
+  function renderTester(){
+    var p=readProfile(), showAll=document.getElementById("rtAll").checked;
+    var res=RULES.map(function(r){ return {r:r,ok:matches(r,p)}; });
+    var hit=res.filter(function(x){return x.ok;});
+    var warn=groupKeys.map(function(g){
+      var inG=hit.filter(function(x){return x.r.group===g;});
+      return inG.length>1 ? '<div class="warnline">\u26a0 Conflict in <b>'+esc(GROUPS[g])+'</b>: '+inG.map(function(x){return x.r.code;}).join(", ")+' all match, but only one should.</div>' : "";
+    }).join("");
+    document.getElementById("rtSum").innerHTML=(loadedNote?esc(loadedNote)+' ':'')+'<b>'+hit.length+' of '+RULES.length+' codes match</b> this profile.'+
+      (hit.length?' Matched: '+hit.map(function(x){return x.r.code;}).join(", ")+'.':'')+(warn||'<div>\u2713 No exclusivity conflicts.</div>');
+    var shown=showAll ? hit.concat(res.filter(function(x){return !x.ok;})) : hit;
+    var list=document.getElementById("rtList");
+    if(!shown.length){ list.innerHTML='<p class="empty">No codes match. Tick the box above to see why each one failed.</p>'; return; }
+    list.innerHTML=shown.map(function(x){
+      var r=x.r;
+      return '<div class="res"><h3>'+(x.ok?'<span class="tag ok">\u2713 Match</span>':'<span class="tag bad">\u2717 No match</span>')+' '+codeLabel(r)+' '+esc(r.name)+'</h3><ul>'+
+        r.conds.map(function(c){
+          var pass=test(c,p);
+          return '<li>'+(pass?'<span class="tag ok">\u2713 Pass</span>':'<span class="tag bad">\u2717 Fail</span>')+' <span>'+esc(condText(c))+' <span class="act">(actual: '+esc(actualText(c,p))+')</span></span></li>';
+        }).join("")+'</ul></div>';
+    }).join("");
+  }
+  document.getElementById("pf").addEventListener("input",function(){ loadedNote=""; renderTester(); });
+  document.getElementById("pf").addEventListener("change",function(){ loadedNote=""; renderTester(); });
+  document.getElementById("rtAll").addEventListener("change",renderTester);
+  document.getElementById("pReset").addEventListener("click",function(){ setProfile(DEFAULT); loadedNote=""; renderTester(); });
+  var pickRng=makeRng(SEED+1);
+  function loadCustomer(c){ setProfile(c); loadedNote="Loaded "+c.id+" from the population."; renderTester(); }
+  document.getElementById("pRand").addEventListener("click",function(){ loadCustomer(POP[Math.floor(pickRng()*POP.length)]); });
+
+  // ---- Distribution chart (inline SVG, horizontal bars) ----
+  var counts={}; RULES.forEach(function(r){ counts[r.code]=0; });
+  POP.forEach(function(c){ c.codes.forEach(function(k){ counts[k]++; }); });
+  function renderDist(){
+    var cat=document.getElementById("dCat").value;
+    var rows=RULES.filter(function(r){ return !cat || r.cat===cat; });
+    var W=760, rowH=24, top=6, labelW=230, valW=80, H=top*2+rows.length*rowH;
+    var max=Math.max.apply(null,rows.map(function(r){return counts[r.code];}).concat([1]));
+    var barMax=W-labelW-valW;
+    var svg=document.getElementById("dChart");
+    svg.setAttribute("viewBox","0 0 "+W+" "+H);
+    var sorted=rows.slice().sort(function(a,b){return counts[b.code]-counts[a.code];});
+    var summary="Bar chart of customers per segment for "+(cat?CATS[cat]:"all categories")+". "+
+      sorted.slice(0,3).map(function(r){return r.code+" "+r.name+": "+counts[r.code];}).join("; ")+".";
+    svg.innerHTML='<title id="dTitle">'+esc(summary)+'</title>'+rows.map(function(r,i){
+      var y=top+i*rowH, n=counts[r.code], w=Math.max(2,n/max*barMax);
+      return '<g><text x="'+(labelW-8)+'" y="'+(y+16)+'" text-anchor="end" font-size="12" fill="#3a4050">'+r.code+' '+esc(r.name)+'</text>'+
+        '<rect x="'+labelW+'" y="'+(y+4)+'" width="'+barMax+'" height="15" rx="3" fill="#3b379612"/>'+
+        '<rect x="'+labelW+'" y="'+(y+4)+'" width="'+w.toFixed(1)+'" height="15" rx="3" fill="#3b3796"/>'+
+        '<text x="'+(labelW+barMax+8)+'" y="'+(y+16)+'" font-size="12" font-weight="700" fill="#1b1d26">'+n+' ('+Math.round(n/POP.length*100)+'%)</text></g>';
+    }).join("");
+    document.getElementById("dHint").textContent=POP.length+" synthetic customers · a customer can hold several codes";
+    document.getElementById("dTbl").innerHTML=rows.map(function(r){
+      return '<tr><td>'+r.code+'</td><td>'+esc(r.name)+'</td><td class="num">'+counts[r.code]+'</td><td class="num">'+Math.round(counts[r.code]/POP.length*100)+'%</td></tr>';
+    }).join("");
+  }
+  document.getElementById("dCat").addEventListener("change",renderDist);
+
+  // ---- Conflict table ----
+  function renderConflicts(){
+    document.getElementById("cTbl").innerHTML=groupKeys.map(function(g){
+      var cg=conflicts[g], members=RULES.filter(function(r){return r.group===g;}).map(function(r){return r.code;});
+      var top=Object.keys(cg.pairs).sort(function(a,b){return cg.pairs[b]-cg.pairs[a];})[0];
+      return '<tr><th scope="row">'+esc(GROUPS[g])+'</th><td>'+members.join(", ")+'</td><td class="num">'+cg.count+'</td><td>'+
+        (cg.count?'<span class="tag bad">\u26a0 Overlap found</span>':'<span class="tag ok">\u2713 No conflicts</span>')+'</td><td>'+
+        (top?top+' ('+cg.pairs[top]+')':'\u2014')+'</td></tr>';
+    }).join("");
+    var samples=[]; groupKeys.forEach(function(g){ conflicts[g].samples.forEach(function(s){ samples.push({g:g,c:s.c,codes:s.codes}); }); });
+    document.getElementById("cSample").innerHTML=samples.length ? samples.map(function(s,i){
+      return '<tr><td>'+s.c.id+'</td><td>'+esc(GROUPS[s.g])+'</td><td>'+s.codes.join(", ")+'</td><td><button type="button" class="btn ghost" data-i="'+i+'" aria-label="Open '+s.c.id+' in the rule tester">Open in tester</button></td></tr>';
+    }).join("") : '<tr><td colspan="4">No conflicts found.</td></tr>';
+    document.getElementById("cSample").addEventListener("click",function(e){
+      var b=e.target.closest("button"); if(!b) return;
+      loadCustomer(samples[+b.getAttribute("data-i")].c);
+      document.getElementById("rtH").scrollIntoView({behavior:"smooth"});
+      document.getElementById("pTen").focus({preventScroll:true});
+    });
+  }
+
+  setProfile(DEFAULT);
+  renderCheat(); renderTester(); renderDist(); renderConflicts();
+})();
+</script>
+</body>
+</html>
